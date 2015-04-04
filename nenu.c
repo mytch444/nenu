@@ -544,6 +544,7 @@ int main(int argc, char *argv[]) {
 
 	/* Setup and map window */
 	attributes.border_pixel = fg.pixel;
+	attributes.background_pixel = bg.pixel;
 	attributes.override_redirect = True;
 	attributes.event_mask = ExposureMask | KeyPressMask | ButtonPressMask;
 
