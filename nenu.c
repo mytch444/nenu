@@ -6,6 +6,7 @@
 #include <X11/Xutil.h>
 #include <X11/Xft/Xft.h>
 #include <X11/extensions/Xrender.h>
+#include <X11/extensions/Xinerama.h>
 #include <fontconfig/fontconfig.h>
 #include <ctype.h>
 #include <strings.h>
@@ -28,19 +29,18 @@ XIC xic;
 
 int x = -1, y = -1;
 int w = 0, h = 0;
-int maxh;
 
 XftColor fg, bg;
 
 XftFont *font;
 int ascent, descent;
-int message_width, cursor_width;
+int heading_width, cursor_width;
 
 int quit;
 int exit_on_one, complete_on_exit, input_bar, read_options, absolute_position;
 size_t cursor;
 char text[MAX_LENGTH];
-char *message;
+char *heading;
 
 option *options;
 option *current, *valid;
@@ -112,9 +112,6 @@ void render_options(int oy) {
 			break;
 		draw_string(o->text, PADDING, oy + ascent);
 		oy += ascent + descent;
-
-		if (oy > maxh)
-			break;
 	}
 }
 
@@ -132,9 +129,9 @@ void render() {
 		cursor_pos = text_width(cursor_text);
 		free(cursor_text); 
 
-		draw_string(message, PADDING, PADDING + ascent);
-		draw_string(text, PADDING + message_width, PADDING + ascent);
-		draw_string("_", PADDING + message_width + cursor_pos, 
+		draw_string(heading, PADDING, PADDING + ascent);
+		draw_string(text, PADDING + heading_width, PADDING + ascent);
+		draw_string("_", PADDING + heading_width + cursor_pos, 
 				PADDING + ascent);
 
 		render_options(PADDING + ascent + 5);
@@ -406,7 +403,7 @@ void update_size() {
 	int ow = w, oh = h;
 	option *o;
 
-	w = message_width + cursor_width + text_width(text);
+	w = heading_width + cursor_width + text_width(text);
 	h = input_bar ? ascent + descent : 0;
 
 	for (o = valid; o; o = o->next) {
@@ -414,9 +411,6 @@ void update_size() {
 		if (tw > w)
 			w = tw;
 		h += ascent + descent;
-
-		if (h >= maxh)
-			break;
 	}
 
 	w += PADDING * 2;
@@ -442,6 +436,27 @@ void set_position() {
 		XQueryPointer(display, root, &ww, &ww, &x, &y, &c, &c, &v);
 
 	XMoveWindow(display, win, x, y);
+}
+
+void keep_in_screen() {
+	XineramaScreenInfo *info;
+	int i, count;
+	if ((info = XineramaQueryScreens(display, &count))) {
+		for (i = 0; i < count; i++) 
+			if (info[i].x_org <= x && x <= info[i].x_org + info[i].width &&
+				info[i].y_org <= y && y <= info[i].y_org + info[i].height)
+				break;
+		if (i == count) return;
+
+		if (x + w > info[i].x_org + info[i].width)
+			x = info[i].x_org + info[i].width - w - BORDER_WIDTH - 1;
+		if (x < info[i].x_org) x = info[i].x_org;
+		if (y + h > info[i].y_org + info[i].height)
+			y = info[i].y_org + info[i].height - h - BORDER_WIDTH - 1;
+		if (y < info[i].y_org) y = info[i].y_org;
+	
+		XMoveWindow(display, win, x, y);
+	}
 }
 
 void read_input() {
@@ -483,7 +498,7 @@ int main(int argc, char *argv[]) {
 	absolute_position = 0;
 
 	cursor = 0;
-	message = "";
+	heading = "";
 	for (i = 0; i < MAX_LENGTH; i++)
 		text[i] = '\0';
 	valid = NULL;
@@ -509,7 +524,7 @@ int main(int argc, char *argv[]) {
 		} else if (strcmp(argv[i], "-ap") == 0) {
 			absolute_position = 1;
 		} else {
-			message = argv[i];
+			heading = argv[i];
 		}
 	}
 
@@ -521,8 +536,6 @@ int main(int argc, char *argv[]) {
 	screen = DefaultScreen(display);
 	vis = XDefaultVisual(display, screen);
 	cmap = DefaultColormap(display, screen);
-
-	maxh = DisplayHeight(display, 0) - y;
 
 	if (!XftColorAllocName(display, vis, cmap, fg_name, &fg))
 		die("Failed to allocate foreground color");
@@ -552,14 +565,17 @@ int main(int argc, char *argv[]) {
 
 	load_font();
 
-	message_width = text_width(message);
+	heading_width = text_width(heading);
 	cursor_width = text_width("_");
 
 	update_size();
 	set_position();
+	if (!absolute_position)
+		keep_in_screen();
 
-	XMapWindow(display, win);
 	render();
+	
+	XMapWindow(display, win);
 
 	grab_keyboard_pointer();
 
