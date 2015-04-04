@@ -1,2 +1,5 @@
 #!/bin/sh
+
+# uses battery from http://github.com/mytch444/battery
+
 battery | nenu -n

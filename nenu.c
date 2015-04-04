@@ -27,19 +27,24 @@ Pixmap nullpixmap;
 XIM xim;
 XIC xic;
 
-int x = -1, y = -1;
-int w = 0, h = 0;
-
 XftColor fg, bg;
 
 XftFont *font;
 int ascent, descent;
 int heading_width, cursor_width;
 
-int quit;
-int exit_on_one, complete_on_exit, input_bar, read_options, absolute_position;
+int x = -1, y = -1;
+int w = 0, h = 0;
+
+int exit_on_one = 0;
+int complete_on_exit = 0;
+int input_bar = 1;
+int read_options = 1;
+int absolute_position = 0;
+
+
 size_t cursor;
-char text[MAX_LENGTH];
+char *text;
 char *heading;
 
 option *options;
@@ -47,17 +52,22 @@ option *current, *valid;
 
 void usage() {
 	printf(
-"usage: nenu [-a|-c|-n|-e|-p x,y|-ap] [header]\n\n"
-"nenu takes options from stdin and display them, allowing the user to input \n"
-"their desired option\n\n"
-"    -a    : exits as soon as there is only one match.\n"
-"    -c    : on exit return the match at the begining of the list. if there is\n"
-"            no match nenu returns the user input\n"
-"    -n    : no input bar is displayed and -c is put on.\n"
-"	 -e    : takes no input from stdin\n"
-"    -p x,y: set's window position\n"
-"    -ap   : don't shift the window so it stays inside the screen\n"
-);
+			"usage: nenu [-a|-c|-n|-e|-p x,y|-ap] [header]\n\n"
+			"nenu takes options from stdin and display them, allowing the user to input \n"
+			"their desired option\n\n"
+			"    -a    : exits as soon as there is only one match.\n"
+			"    -c    : on exit return the match at the begining of the list. if there is\n"
+			"            no match nenu returns the user input\n"
+			"    -n    : no input bar is displayed and -c is put on.\n"
+			"	 -e    : takes no input from stdin\n"
+			"\n"
+			"    -p x,y: set window position\n"
+			"    -ap   : don't shift the window so it stays inside the screen\n"
+			"\n"
+			"    -fg #ff00ff : set foreground and border color\n"
+			"    -bg #000000 : set background color\n"
+			"    -fn font    : set font.\n"
+		  );
 } 
 
 void die(char *msg) {
@@ -74,7 +84,7 @@ void finish() {
 	} else  {
 		printf("%s\n", text);
 	}
-	quit = 1;
+	exit(0);
 }
 
 int text_width(char *str) {
@@ -144,12 +154,10 @@ void render() {
 void insert(char *str, ssize_t n) {
 	int i, j;
 
-	if (!input_bar)
-		return;
-	if (strlen(text) + n > MAX_LENGTH)
+	if (strlen(text) + n > MAX_LEN)
 		return;
 
-	memmove(&text[cursor + n], &text[cursor], MAX_LENGTH - cursor - MAX(n, 0));
+	memmove(&text[cursor + n], &text[cursor], MAX_LEN - cursor - MAX(n, 0));
 	if (n > 0)
 		memcpy(&text[cursor], str, n);
 	cursor += n;
@@ -180,6 +188,12 @@ void handle_button(XButtonEvent be) {
 			else
 				current = valid;
 			break;
+		case Button1:
+			finish();
+			break;
+		case Button3:
+			finish();
+			break;
 		case Button2:
 			finish();
 			break;
@@ -202,6 +216,12 @@ void handle_key(XKeyEvent ke) {
 	if (ke.state & ControlMask) {
 		switch(keysym) {
 			// Emacs
+			case XK_a:
+				keysym = XK_Home;
+				break;
+			case XK_e:
+				keysym = XK_End;
+				break;
 			case XK_p:
 				keysym = XK_Up;
 				break;
@@ -235,40 +255,53 @@ void handle_key(XKeyEvent ke) {
 
 	}
 
-	switch(keysym) {
-		default:
-			if (input_bar) {
+	if (input_bar) {
+		switch(keysym) {
+			default:
 				if (!iscntrl(*buf))
 					insert(buf, len);
 				update_valid_options();
-			}
-			break;
-		case XK_Delete: // How the fuck does this work?
-			if (text[cursor] == '\0')
-				return;
-			cursor = nextrune(+1);
-			update_valid_options();
-		case XK_BackSpace:
-			if (input_bar) {
+				break;
+
+			case XK_Delete: // How the fuck does this work?
+				if (text[cursor] == '\0')
+					return;
+				cursor = nextrune(+1);
+				update_valid_options();
+
+			case XK_BackSpace:
 				if (cursor == 0)
 					exit(0);
 				insert(NULL, nextrune(-1) - cursor);
 				update_valid_options();
-			}
-			break;
-		case XK_Tab:
-			select_forward_match();
-			update_valid_options();
-			break;
+				break;
 
-		case XK_Left:
-			if (cursor != 0)
-				cursor = nextrune(-1);
-			break;
-		case XK_Right:
-			if (text[cursor] != '\0' && cursor < MAX_LENGTH - 1)
-				cursor = nextrune(+1);
-			break;
+			case XK_Tab:
+				select_forward_match();
+				update_valid_options();
+				break;
+
+			case XK_Left:
+				if (cursor != 0)
+					cursor = nextrune(-1);
+				break;
+
+			case XK_Right:
+				if (text[cursor] != '\0' && cursor < MAX_LEN - 1)
+					cursor = nextrune(+1);
+				break;
+
+			case XK_Home:
+				cursor = 0;
+				break;
+			
+			case XK_End:
+				while (text[cursor] != '\0' && cursor < MAX_LEN - 1)
+					cursor = nextrune(+1);
+		}
+	}
+
+	switch(keysym) {
 		case XK_Up:
 			if (current->prev) {
 				current = current->prev;
@@ -287,7 +320,7 @@ void handle_key(XKeyEvent ke) {
 			finish();
 			break;
 		case XK_Escape:
-			exit(0);
+			exit(1);
 			break;
 	}
 
@@ -347,7 +380,7 @@ void select_forward_match() {
 	cursor = can_move;
 }
 
-void load_font() {
+void load_font(char *fontstr) {
 	FcPattern *pattern, *match;
 	FcResult result;
 
@@ -382,7 +415,7 @@ void grab_keyboard_pointer() {
 			&dummycolor, &dummycolor, 0, 0);
 
 	for (i = 0; (k || p) && i < 1000; i++) {
-		
+
 		if (p && XGrabPointer(display, root, False, ButtonPressMask,
 					GrabModeAsync, GrabModeAsync, 
 					win, nullcursor, CurrentTime) 
@@ -444,7 +477,7 @@ void keep_in_screen() {
 	if ((info = XineramaQueryScreens(display, &count))) {
 		for (i = 0; i < count; i++) 
 			if (info[i].x_org <= x && x <= info[i].x_org + info[i].width &&
-				info[i].y_org <= y && y <= info[i].y_org + info[i].height)
+					info[i].y_org <= y && y <= info[i].y_org + info[i].height)
 				break;
 		if (i == count) return;
 
@@ -454,7 +487,7 @@ void keep_in_screen() {
 		if (y + h > info[i].y_org + info[i].height)
 			y = info[i].y_org + info[i].height - h - BORDER_WIDTH - 1;
 		if (y < info[i].y_org) y = info[i].y_org;
-	
+
 		XMoveWindow(display, win, x, y);
 	}
 }
@@ -491,16 +524,13 @@ int main(int argc, char *argv[]) {
 	XEvent ev;
 	int i;
 
-	exit_on_one = 0;
-	complete_on_exit = 0;
-	input_bar = 1;
-	read_options = 1;
-	absolute_position = 0;
+	char *bg_name = default_bg;
+	char *fg_name = default_fg;
+	char *fontstr = default_fontstr;
 
 	cursor = 0;
 	heading = "";
-	for (i = 0; i < MAX_LENGTH; i++)
-		text[i] = '\0';
+	text = calloc(MAX_LEN, sizeof(char));
 	valid = NULL;
 	current = NULL;
 
@@ -523,6 +553,12 @@ int main(int argc, char *argv[]) {
 			y = atoi(argv[i]);
 		} else if (strcmp(argv[i], "-ap") == 0) {
 			absolute_position = 1;
+		} else if (strcmp(argv[i], "-fg") == 0) {
+			fg_name = argv[++i];
+		} else if (strcmp(argv[i], "-bg") == 0) {
+			bg_name = argv[++i];
+		} else if (strcmp(argv[i], "-fn") == 0) {
+			fontstr = argv[++i];
 		} else {
 			heading = argv[i];
 		}
@@ -564,7 +600,7 @@ int main(int argc, char *argv[]) {
 	buf = XCreatePixmap(display, win, 10, 10, DefaultDepth(display, screen));
 	draw = XftDrawCreate(display, buf, vis, cmap);
 
-	load_font();
+	load_font(fontstr);
 
 	heading_width = text_width(heading);
 	cursor_width = text_width("_");
@@ -575,13 +611,12 @@ int main(int argc, char *argv[]) {
 		keep_in_screen();
 
 	render();
-	
+
 	XMapWindow(display, win);
 
 	grab_keyboard_pointer();
 
-	quit = 0;
-	while (!quit && !XNextEvent(display, &ev)) {
+	while (!XNextEvent(display, &ev)) {
 		if (ev.type == KeyPress)
 			handle_key(ev.xkey);
 		else if (ev.type == ButtonPress)

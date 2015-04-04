@@ -25,7 +25,7 @@ void update_valid_options();
 void select_forward_match();
 
 void make_cursor();
-void load_font();
+void load_font(char *fontstr);
 void grab_keyboard_pointer();
 void update_size();
 void set_position();

@@ -17,13 +17,19 @@ nenu: nenu.c config.h
 .PHONY:
 clean:
 	rm nenu
+	rm nenu.1.gz
+
+nenu.1.gz: nenu.1
+	gzip -k nenu.1
 
 .PHONY:
-install: nenu nexec nwindow ntime
+install: nenu.1.gz nenu nexec nwindow ntime
 	install -Dm 755 nenu ${DESTDIR}${PREFIX}/bin/nenu
 	install -Dm 755 nexec ${DESTDIR}${PREFIX}/bin/nexec
 	install -Dm 755 nwindow ${DESTDIR}${PREFIX}/bin/nwindow
 	install -Dm 755 ntime ${DESTDIR}${PREFIX}/bin/ntime
+	install -D nenu.1.gz ${DESTDIR}${PREFIX}/man/man1/nenu.1.gz
+	
 
 .PHONY:
 uninstall:
@@ -31,4 +37,5 @@ uninstall:
 	rm ${DESTDIR}${PREFIX}/bin/nexec
 	rm ${DESTDIR}${PREFIX}/bin/nwindow
 	rm ${DESTDIR}${PREFIX}/bin/ntime
+	rm ${DESTDIR}${PREFIX}/man/man1/nenu.1.gz
 

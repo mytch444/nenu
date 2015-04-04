@@ -1,0 +1,84 @@
+.\" Manpage for nenu
+.\" Contact mytchel at openmailbox dot org to correct erros or typos.
+.TH man 1 "5 April 2015" "1.0" nenu man page"
+.SH NAME
+nenu - nilps menu
+.SH SYNOPSIS
+.B nenu
+.RB [ \-a ]
+.RB [ \-c ]
+.RB [ \-n ]
+.RB [ \-e ]
+.RB [ \-p 
+.IR x,y ]
+.RB [ \-ap ]
+.RB [ \-fg
+.IR color ]
+.RB [ \-bg
+.IR color ]
+.RB [ \-fn
+.IR font ]
+.SH DESCRIPTION
+nenu is a dynamic menu for X that takes (or doesnt) input from stdin and displays in in a list, the user can then select one of the options, typing reduces the number. Depending on the flag they can input something not in the list.
+
+It's very similar to dmenu but looks more like the menu's in cwm.
+
+.SH OPTIONS
+.TP
+.B \-a
+exits as soon as there is only one match.
+.TP
+.B \-c
+on exit, return the match at the begining of the list. if there is no match nenu returns the user input.
+.TP
+.B \-n
+no input bar is displayed and -c is turned on.
+.TP
+.B \-e
+takes no input from stdin.
+.TP
+.B \-ap
+don't shift the window so it stays inside the monitor (that x,y or mouse is in)
+.TP
+.BI \-p " x,y"
+positions the window at x,y. (you will want to enale -ap if you want it to got to this exact position, otherwise it may be adjusted to stay in the monitor)
+.TP
+.BI \-fg " color"
+sets foreground color to color in form of "#ff00ff"
+.TP
+.BI \-bg " color"
+sets background color to color in form of "#ff00ff"
+.TP
+.BI \-fn " font"
+sets font to font.
+.TP
+.B \-h
+prints help menu.
+.SH USAGE
+nenu is controlled mostly by the keyboard but you can also scroll and click (button 1, 2 or 3) to select an option.
+Most keys do as expected ie: backspace backspaces, delete deletes, keys generally input what is often associated with said key.
+.TP
+.B Up, C-p, C-k
+Move valid options up one.
+.TP
+.B Down, C-n, C-j
+Move valid options down one.
+.TP
+.B Left, C-b, C-h
+Move cursor to the left.
+.TP
+.B Right, C-f, C-l
+Move curosr to the right.
+.TP
+.B Home, C-a
+Move cursor to begining.
+.TP
+.B End, C-e
+Move cursor to end.
+.TP
+.B Tab
+Match text as far forward as can without reducing valid options.
+.SH BUGS
+Probably. When you find them tell me.
+.SH AUTHOR
+Mytchel Hammond (mytchel at openmailbox dot org)
