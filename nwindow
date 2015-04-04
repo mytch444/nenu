@@ -1,0 +1,9 @@
+#!/bin/sh
+# use with suckless's lsw and wmutils's chwso to show menu of mapped windows,
+# select one then raise it.
+
+LSW=/usr/local/bin/lsw
+
+WINDOWS=`$LSW | cut -d' ' -f2- | nl -n rz -w $((\`$LSW | wc -l | wc -c\` - 1)) -s ' '`
+N=`echo $WINDOWS | nenu -n | cut -d' ' -f1`
+[ ! -z $N ] && $LSW | head -$N | tail -1 | cut -d' ' -f1 | xargs chwso -r

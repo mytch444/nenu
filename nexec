@@ -1,0 +1,2 @@
+#!/bin/sh
+lsx `echo $PATH | sed "s/:/\n/g"` | sort | nenu -c "exec: " | ${SHELL:-"/bin/sh"}

@@ -1,0 +1,2 @@
+#!/bin/sh
+date +"%H:%M:%S %a %h %d %Y" | nenu -n
