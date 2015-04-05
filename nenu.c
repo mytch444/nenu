@@ -42,7 +42,6 @@ int input_bar = 1;
 int read_options = 1;
 int absolute_position = 0;
 
-
 size_t cursor;
 char *text;
 char *heading;
