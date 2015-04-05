@@ -27,14 +27,18 @@ install-man: nenu.1.gz
 	install -D nenu.1.gz ${DESTDIR}${PREFIX}/man/man1/nenu.1.gz
 
 .PHONY:
-install-execs: nenu nexec nwindow ntime
+install-nenu: nenu
 	install -Dm 755 nenu ${DESTDIR}${PREFIX}/bin/nenu
+
+.PHONY:
+install-scripts: nexec nwindow ntime nbatt
 	install -Dm 755 nexec ${DESTDIR}${PREFIX}/bin/nexec
 	install -Dm 755 nwindow ${DESTDIR}${PREFIX}/bin/nwindow
 	install -Dm 755 ntime ${DESTDIR}${PREFIX}/bin/ntime
+	install -Dm 755 nbatt ${DESTDIR}${PREFIX}/bin/nbatt
 
 .PHONY:
-install: install-man install-execs
+install: install-man install-nenu install-scripts
 
 .PHONY:
 uninstall-man:
