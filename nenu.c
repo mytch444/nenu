@@ -106,20 +106,20 @@ void draw_string(FcChar8 *str, int x, int y) {
 }
 
 void render_options(int oy) {
-	option *o;
-
-	for (o = valid; o; o = o->next) {
-		draw_string(o->text, PADDING, oy + ascent);
-		oy += ascent + descent;
-	}
-	
-	for (o = valid->prev; o && o->prev; o = o->prev);
-	for (; o; o = o->next) {
-		draw_string(o->text, PADDING, oy + ascent);
-		oy += ascent + descent;
+	option *o = valid;
+	int flip = 0;
+	while (1) {
+		if (o) {
+			draw_string(o->text, PADDING, oy + ascent);
+			oy += ascent + descent;
+			o = o->next;
+		} else if ((flip++) < 2 && valid) {
+			for (o = valid->prev; o && o->prev; o = o->prev);
+		} else {
+			break;
+		}
 	}
 }
-
 
 void render() {
 	FcChar8 *cursor_text;
@@ -127,6 +127,7 @@ void render() {
 
 	update_size();
 	update_position();
+	
 	XftDrawRect(draw, &bg, 0, 0, w, h);
 
 	if (input_bar) {
@@ -168,6 +169,7 @@ void copy_first() {
 		update_valid_options();
 	}
 }
+
 // return location of next utf8 rune in the given direction -- thanks dmenu
 size_t nextrune(int inc) {
 	ssize_t n;
@@ -218,14 +220,12 @@ void handle_key(XKeyEvent ke) {
 
 	if (ke.state & ControlMask) {
 		switch(keysym) {
-			// Emacs
 			case XK_a:
 				keysym = XK_Home;
 				break;
 			case XK_e:
 				keysym = XK_End;
 				break;
-
 			case XK_p:
 				keysym = XK_Up;
 				break;
@@ -241,7 +241,6 @@ void handle_key(XKeyEvent ke) {
 			case XK_d:
 				keysym = XK_Delete;
 				break;
-				
 			case XK_k:
 				text[cursor] = '\0';
 				break;
@@ -324,10 +323,12 @@ void handle_key(XKeyEvent ke) {
 }
 
 void update_valid_options() {
-	option *head = malloc(sizeof(option));
-	head->next = NULL;
-	option *v = head;
-	option *o;
+	option *head, *o, *v;
+	v = head = calloc(sizeof(option), 1);
+
+	for (o = valid; o && o->prev; o = o->prev);
+	for (; o; o = o->next) 
+		free(o);
 
 	for (o = options; o; o = o->next) {
 		if (strncmp(text, o->text, strlen(text)) == 0) {
@@ -339,9 +340,9 @@ void update_valid_options() {
 		}
 	}
 
+	if (head->next)
+		head->next->prev = NULL;
 	valid = head->next;
-	if (valid)
-		valid->prev = NULL;
 	free(head);
 }
 
@@ -392,6 +393,7 @@ void grab_keyboard_pointer() {
 
 		usleep(1000);
 	}
+
 	if (p) die("Failed to grab pointer!");
 	if (k) die("Failed to grab keyboard!");
 }
