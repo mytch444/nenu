@@ -93,16 +93,21 @@ void finish() {
 	exit(EXIT_SUCCESS);
 }
 
-int text_width(FcChar8 *str) {
+int text_width(FcChar8 *s) {
 	XGlyphInfo g;
-	int len = strlen(str);
-
+	int i, len = strlen(s);
+	/* XftTextExtentsUtf8 doesn't seem to know what a space is. */
+	char str[MAX_LEN];
+	strcpy(str, s);
+	for (i = 0; i < len; i++) 
+		if (str[i] == ' ') str[i] = '-';
+	
 	XftTextExtentsUtf8(display, font, str, len, &g);
 	return g.width;
 }
 
-void draw_string(FcChar8 *str, int x, int y) {
-	XftDrawStringUtf8(draw, &fg, font, x, y, (FcChar8 *) str, strlen(str));
+void draw_string(FcChar8 *s, int x, int y) {
+	XftDrawStringUtf8(draw, &fg, font, x, y, (FcChar8 *) s, strlen(s));
 }
 
 void render_options(int oy) {
@@ -123,7 +128,8 @@ void render_options(int oy) {
 
 void render() {
 	FcChar8 *cursor_text;
-	int cursor_pos;
+	int cursor_pos, padding;
+	FcChar8 bar[MAX_LEN];
 
 	update_size();
 	update_position();
@@ -131,21 +137,19 @@ void render() {
 	XftDrawRect(draw, &bg, 0, 0, w, h);
 
 	if (input_bar) {
-		cursor_text = malloc(sizeof(FcChar8) * (cursor + 1));
-		strncpy(cursor_text, text, cursor);
-		cursor_text[cursor] = '\0';
-		cursor_pos = text_width(cursor_text);
-		free(cursor_text); 
+		sprintf(bar, "%s%s", heading, text);
+		draw_string(bar, PADDING, PADDING + ascent);
+		
+		bar[strlen(heading) + cursor] = '\0';
+		cursor_pos = text_width(bar);
 
-		draw_string(heading, PADDING, PADDING + ascent);
-		draw_string(text, PADDING + heading_width, PADDING + ascent);
-		draw_string("_", PADDING + heading_width + cursor_pos, 
+		draw_string("_", PADDING + 1 + cursor_pos, 
 				PADDING + ascent);
 
-		render_options(PADDING + ascent + 5);
-	} else
-		render_options(PADDING);
-
+		padding = ascent + 5;
+	}
+		
+	render_options(PADDING + padding);
 	XCopyArea(display, buf, win, gc, 0, 0, w, h, 0, 0);
 }
 
@@ -381,7 +385,6 @@ void grab_keyboard_pointer() {
 			&dummycolor, &dummycolor, 0, 0);
 
 	for (i = 0; (k || p) && i < 1000; i++) {
-
 		if (p && XGrabPointer(display, root, False, ButtonPressMask,
 					GrabModeAsync, GrabModeAsync, 
 					win, nullcursor, CurrentTime) 
