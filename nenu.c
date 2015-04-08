@@ -112,23 +112,22 @@ void draw_string(FcChar8 *s, int x, int y) {
 
 void render_options(int oy) {
 	option *o = valid;
-	int flip = 0;
-	while (1) {
+	int flip = 2;
+	while (flip) {
+		if (flip == 1 && o == valid) break;
 		if (o) {
 			draw_string(o->text, PADDING, oy + ascent);
 			oy += ascent + descent;
 			o = o->next;
-		} else if ((flip++) < 2 && valid) {
+		} else if (--flip && valid) {
 			for (o = valid->prev; o && o->prev; o = o->prev);
-		} else {
-			break;
 		}
 	}
 }
 
 void render() {
 	FcChar8 *cursor_text;
-	int cursor_pos, padding;
+	int cursor_pos, padding = 0;
 	FcChar8 bar[MAX_LEN];
 
 	update_size();
@@ -148,7 +147,7 @@ void render() {
 
 		padding = ascent + 5;
 	}
-		
+
 	render_options(PADDING + padding);
 	XCopyArea(display, buf, win, gc, 0, 0, w, h, 0, 0);
 }
@@ -553,8 +552,7 @@ int main(int argc, char *argv[]) {
 		} else if (strcmp(argv[i], "-e") == 0) {
 			read_options = 0;
 		} else if (strcmp(argv[i], "-p") == 0) {
-			i++;
-			x = atoi(strsep(&argv[i], ","));
+			x = atoi(strsep(&argv[++i], ","));
 			y = atoi(argv[i]);
 		} else if (strcmp(argv[i], "-ap") == 0) {
 			absolute_position = 1;

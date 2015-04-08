@@ -1,11 +1,7 @@
 #!/bin/sh
-# use with suckless's lsw and wmutils's chwso to show menu of mapped windows,
-# select one then raise it.
+# wmutils's chwso to show menu of mapped windows, select one then raise it.
 
-LSW=/usr/local/bin/lsw
+N=`(for p in $(lsw); do echo " $(wname $p)"; done) | \
+	nl -n rz -s ' ' -w 2 | nenu -n | cut -d' ' -f1`
 
-WINDOWS=`$LSW | cut -d' ' -f2- | \
-	nl -n rz -w $((\`$LSW | wc -l | wc -c\` - 1)) -s ' ' | \
-	nenu -n | cut -d' ' -f1`
-
-[ ! -z $N ] && $LSW | head -$N | tail -1 | cut -d' ' -f1 | xargs chwso -r
+[ ! -z $N ] && lsw | head -$N | tail -1 | cut -d' ' -f1 | xargs chwso -r
