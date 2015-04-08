@@ -4,7 +4,7 @@
 #define MAX_LEN 512
 #define TAB_WIDTH 4
 
-char default_bg[] = "#000000";
-char default_fg[] = "#cccccc";
+char bg_name[] = "#000000";
+char fg_name[] = "#cccccc";
 
-char default_fontstr[] = "DejaVuSansMono:pixelsize=12:antialias=true:autohint=false";
+char font_str[] = "DejaVuSansMono:pixelsize=12:antialias=true:autohint=false";

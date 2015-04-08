@@ -16,60 +16,70 @@
 #include "nenu.h"
 #include "config.h"
 
-Window root, win;
-int screen;
-Display *display;
-GC gc;
-Drawable buf;
-XftDraw *draw;
-Pixmap nullpixmap;
+static Window root, win;
+static int screen;
+static Display *display;
+static GC gc;
+static Drawable buf;
+static XftDraw *draw;
+static Pixmap nullpixmap;
 
-XIM xim;
-XIC xic;
+static XIM xim;
+static XIC xic;
 
-XftColor fg, bg;
+static XftColor fg, bg;
 
-XftFont *font;
-int ascent, descent;
-int heading_width, cursor_width;
+static XftFont *font;
+static int ascent, descent;
+static int heading_width, cursor_width;
 
-int x = -1, y = -1;
-int w = 0, h = 0;
+static int x = -1, y = -1;
+static int w = 0, h = 0;
 
-int exit_on_one = 0;
-int complete_on_exit = 0;
-int input_bar = 1;
-int read_options = 1;
-int absolute_position = 0;
+static int exit_on_one = 0;
+static int complete_on_exit = 0;
+static int input_bar = 1;
+static int read_options = 1;
+static int absolute_position = 0;
 
-size_t cursor;
-FcChar8 *text;
-FcChar8 *heading;
+static size_t cursor = 0;
+static FcChar8 text[MAX_LEN];;
+static FcChar8 heading[MAX_LEN];
 
-option *options;
-option *current, *valid;
+static option *options = NULL;
+static option *current = NULL;
+static option *valid = NULL;
 
 void usage() {
 	printf(
-			"usage: nenu [-a|-c|-n|-e|-p x,y|-ap] [header]\n\n"
-			"nenu takes options from stdin and display them, allowing the user to input \n"
-			"their desired option\n\n"
+			"usage: nenu [-a|-c|-n|-e|-p x,y|-ap] [header]\n"
+			"\n"
+			"nenu takes options from stdin and displays them in a list, allowing the user to choose their deisred option.\n"
+			"\n"
 			"    -a    : exits as soon as there is only one match.\n"
 			"    -c    : on exit return the match at the begining of the list. if there is\n"
 			"            no match nenu returns the user input\n"
 			"    -n    : no input bar is displayed and -c is put on.\n"
-			"	 -e    : takes no input from stdin\n"
+			"    -e    : takes no input from stdin\n"
 			"\n"
 			"    -p x,y: set window position\n"
 			"    -ap   : don't shift the window so it stays inside the screen\n"
 			"\n"
-			"    -fg #ff00ff : set foreground and border color\n"
-			"    -bg #000000 : set background color\n"
+			"    -fg c : set foreground and border color\n"
+			"    -bg c : set background color\n"
 			"    -fn font    : set font.\n"
 		  );
 } 
 
-void die(FcChar8 *msg) {
+void clean_resources() {
+	XUngrabKeyboard(display, CurrentTime);
+	XUngrabPointer(display, CurrentTime);
+	XFreeGC(display, gc);
+	XFreePixmap(display, buf);
+	XFreePixmap(display, nullpixmap);
+}
+
+void die(char *msg) {
 	fprintf(stderr, "nenu [ERROR]: %s\n", msg);
 	exit(EXIT_FAILURE);
 }
@@ -77,13 +87,14 @@ void die(FcChar8 *msg) {
 void finish() {
 	if (complete_on_exit) {
 		if (current) printf("%s\n", current->text);
-		else if (valid) printf("%s\n", valid->text);
 	} else if (exit_on_one) {
 		if (valid) printf("%s\n", valid->text);
 	} else  {
 		printf("%s\n", text);
 	}
-	exit(0);
+	
+	clean_resources();
+	exit(EXIT_SUCCESS);
 }
 
 int text_width(FcChar8 *str) {
@@ -119,6 +130,7 @@ void render() {
 	int cursor_pos;
 
 	update_size();
+	update_position();
 	XftDrawRect(draw, &bg, 0, 0, w, h);
 
 	if (input_bar) {
@@ -152,6 +164,14 @@ void insert(FcChar8 *str, ssize_t n) {
 	cursor += n;
 }
 
+void copy_first() {
+	if (current) {
+		strcpy(text, current->text);
+		while (text[cursor] != '\0' && cursor < MAX_LEN - 1)
+			cursor = nextrune(+1);					
+		update_valid_options();
+	}
+}
 // return location of next utf8 rune in the given direction -- thanks dmenu
 size_t nextrune(int inc) {
 	ssize_t n;
@@ -267,8 +287,7 @@ void handle_key(XKeyEvent ke) {
 				break;
 
 			case XK_Tab:
-				select_forward_match();
-				update_valid_options();
+				copy_first();
 				break;
 
 			case XK_Left:
@@ -348,36 +367,14 @@ void update_valid_options() {
 	current = valid;
 }
 
-void select_forward_match() {
-	option *o;
-	int i, can_move = -1, good = 1;
-	FcChar8 c;
-
-	if (!valid)
-		return;
-
-	while (good) {
-		c = valid->text[++can_move];
-		if (!c) break;
-		for (o = valid; o && good; o = o->next)
-			if (o->text[can_move] != c)
-				good = 0;
-	}
-
-	if (can_move > 0)
-		for (i = 0; i < can_move; i++)
-			text[i] = valid->text[i];
-	cursor = can_move;
-}
-
-void load_font(FcChar8 *fontstr) {
+void load_font(FcChar8 *font_str) {
 	FcPattern *pattern, *match;
 	FcResult result;
 
-	if (fontstr[0] == '-') 
-		pattern = XftXlfdParse(fontstr, False, False);
+	if (font_str[0] == '-') 
+		pattern = XftXlfdParse(font_str, False, False);
 	else
-		pattern = FcNameParse((FcChar8 *) fontstr);
+		pattern = FcNameParse((FcChar8 *) font_str);
 
 	if (!pattern)
 		die("Failed to get font pattern");
@@ -426,6 +423,9 @@ void update_size() {
 	int ow = w, oh = h;
 	option *o;
 
+	heading_width = text_width(heading);
+	cursor_width = text_width("_");
+
 	w = heading_width + cursor_width + text_width(text);
 	h = input_bar ? ascent + descent : 0;
 
@@ -450,13 +450,16 @@ void update_size() {
 	XftDrawChange(draw, buf);
 }
 
-void set_position() {
+void update_position() {
 	Window ww;
 	int c, v;
 
 	/* if x,y not set then set to cursor position. */
 	if (x == -1 && y == -1) 
 		XQueryPointer(display, root, &ww, &ww, &x, &y, &c, &c, &v);
+
+	if (!absolute_position)
+		keep_in_screen();
 
 	XMoveWindow(display, win, x, y);
 }
@@ -479,8 +482,6 @@ void keep_in_screen() {
 		if (y + h > info[i].y_org + info[i].height)
 			y = info[i].y_org + info[i].height - h - BORDER_WIDTH - 1;
 		if (y < info[i].y_org) y = info[i].y_org;
-
-		XMoveWindow(display, win, x, y);
 	}
 }
 
@@ -488,12 +489,10 @@ void read_input() {
 	FcChar8 line[512];
 	int l;
 	option *o, *head;
-	head = malloc(sizeof(option));
-	head->next = NULL;
-	o = head;
+	o = head = calloc(sizeof(option), 1);
 
 	while (fgets(line, sizeof(line), stdin)) {
-		o->next = malloc(sizeof(option));
+		o->next = calloc(sizeof(option), 1);
 		o->next->prev = o;
 		o = o->next;
 
@@ -501,7 +500,6 @@ void read_input() {
 		o->text = calloc(sizeof(char), l);
 		strncpy(o->text, line, l - 1);
 		o->text[l - 1] = '\0';
-		o->next = NULL;
 	}
 
 	options = head->next;
@@ -510,57 +508,12 @@ void read_input() {
 	update_valid_options();
 }
 
-int main(int argc, char *argv[]) {
+void setup() {
 	XSetWindowAttributes attributes;
 	XWindowAttributes window_attributes;
 	Visual *vis;
 	Colormap cmap;
-	XEvent ev;
-	int i;
-
-	char *bg_name = default_bg;
-	char *fg_name = default_fg;
-	char *fontstr = default_fontstr;
-
-	cursor = 0;
-	heading = "";
-	text = calloc(MAX_LEN, sizeof(FcChar8));
-	valid = NULL;
-	current = NULL;
-
-	for (i = 1; i < argc; i++) {
-		if (strcmp(argv[i], "-h") == 0) {
-			usage();
-			return 0;
-		} else if (strcmp(argv[i], "-a") == 0) {
-			exit_on_one = 1;
-		} else if (strcmp(argv[i], "-c") == 0) {
-			complete_on_exit = 1;
-		} else if (strcmp(argv[i], "-n") == 0) {
-			complete_on_exit = 1;
-			input_bar = 0;
-		} else if (strcmp(argv[i], "-e") == 0) {
-			read_options = 0;
-		} else if (strcmp(argv[i], "-p") == 0) {
-			i++;
-			x = atoi(strsep(&argv[i], ","));
-			y = atoi(argv[i]);
-		} else if (strcmp(argv[i], "-ap") == 0) {
-			absolute_position = 1;
-		} else if (strcmp(argv[i], "-fg") == 0) {
-			fg_name = argv[++i];
-		} else if (strcmp(argv[i], "-bg") == 0) {
-			bg_name = argv[++i];
-		} else if (strcmp(argv[i], "-fn") == 0) {
-			fontstr = argv[++i];
-		} else {
-			heading = argv[i];
-		}
-	}
-
-	if (read_options) 
-		read_input();
-
+	
 	display = XOpenDisplay(NULL);
 	root = RootWindow(display, 0);
 	screen = DefaultScreen(display);
@@ -579,7 +532,7 @@ int main(int argc, char *argv[]) {
 	attributes.event_mask = ExposureMask | KeyPressMask | ButtonPressMask;
 
 	win = XCreateWindow(display, root,
-			0, 0, 10, 10, BORDER_WIDTH,
+			0, 0, 1, 1, BORDER_WIDTH,
 			DefaultDepth(display, 0),
 			CopyFromParent, CopyFromParent,
 			CWBackPixel | CWOverrideRedirect | CWEventMask 
@@ -592,18 +545,50 @@ int main(int argc, char *argv[]) {
 
 	gc = XCreateGC(display, win, 0, 0);
 
-	buf = XCreatePixmap(display, win, 10, 10, DefaultDepth(display, screen));
+	buf = XCreatePixmap(display, win, 1, 1, DefaultDepth(display, screen));
 	draw = XftDrawCreate(display, buf, vis, cmap);
 
-	load_font(fontstr);
+	load_font(font_str);
+}
 
-	heading_width = text_width(heading);
-	cursor_width = text_width("_");
+int main(int argc, char *argv[]) {
+	XEvent ev;
+	int i;
 
-	update_size();
-	set_position();
-	if (!absolute_position)
-		keep_in_screen();
+	for (i = 1; i < argc; i++) {
+		if (strcmp(argv[i], "-h") == 0) {
+			usage();
+			exit(EXIT_SUCCESS);
+		} else if (strcmp(argv[i], "-a") == 0) {
+			exit_on_one = 1;
+		} else if (strcmp(argv[i], "-c") == 0) {
+			complete_on_exit = 1;
+		} else if (strcmp(argv[i], "-n") == 0) {
+			complete_on_exit = 1;
+			input_bar = 0;
+		} else if (strcmp(argv[i], "-e") == 0) {
+			read_options = 0;
+		} else if (strcmp(argv[i], "-p") == 0) {
+			i++;
+			x = atoi(strsep(&argv[i], ","));
+			y = atoi(argv[i]);
+		} else if (strcmp(argv[i], "-ap") == 0) {
+			absolute_position = 1;
+		} else if (strcmp(argv[i], "-fg") == 0) {
+			strcpy(fg_name, argv[++i]);
+		} else if (strcmp(argv[i], "-bg") == 0) {
+			strcpy(bg_name, argv[++i]);
+		} else if (strcmp(argv[i], "-fn") == 0) {
+			strcpy(font_str, argv[++i]);
+		} else {
+			strcpy(heading, argv[i]);
+		}
+	}
+
+	setup();
+
+	if (read_options) 
+		read_input();
 
 	render();
 
@@ -622,11 +607,6 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
-	XUngrabKeyboard(display, CurrentTime);
-	XUngrabPointer(display, CurrentTime);
-	XFreeGC(display, gc);
-	XFreePixmap(display, buf);
-	XFreePixmap(display, nullpixmap);
-
-	return 0;
+	clean_resources();
+	exit(EXIT_FAILURE);
 }
