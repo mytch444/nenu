@@ -15,3 +15,4 @@ Look in nexec, ntime and nwindow for examples of use. These are useable scripts
 in their own right.
 
 On exit returns 0, unless escape was pressed, then returns 1.
+Seems to be unicode safe, haven't don't much testing though.

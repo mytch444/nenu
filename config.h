@@ -2,6 +2,7 @@
 #define BORDER_WIDTH 2
 
 #define MAX_LEN 512
+#define TAB_WIDTH 4
 
 char default_bg[] = "#000000";
 char default_fg[] = "#cccccc";

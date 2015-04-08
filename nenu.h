@@ -1,21 +1,21 @@
 
 typedef struct option option;
 struct option {
-	char *text;
+	FcChar8 *text;
 	option *next, *prev;
 };
 
 void usage();
-void die(char *msg);
+void die(FcChar8 *msg);
 void finish();
 
-int text_width(char *str);
-void draw_string(char *str, int x, int y);
+int text_width(FcChar8 *str);
+void draw_string(FcChar8 *str, int x, int y);
 
 void render_options(int oy); 
 void render(); 
 
-void insert(char *str, ssize_t n); 
+void insert(FcChar8 *str, ssize_t n); 
 size_t nextrune(int inc); 
 
 void handle_button(XButtonEvent be); 
@@ -25,7 +25,7 @@ void update_valid_options();
 void select_forward_match();
 
 void make_cursor();
-void load_font(char *fontstr);
+void load_font(FcChar8 *fontstr);
 void grab_keyboard_pointer();
 void update_size();
 void set_position();

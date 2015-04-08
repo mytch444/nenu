@@ -43,8 +43,8 @@ int read_options = 1;
 int absolute_position = 0;
 
 size_t cursor;
-FcChar8 *text;
-FcChar8 *heading;
+char *text;
+char *heading;
 
 option *options;
 option *current, *valid;
@@ -69,7 +69,7 @@ void usage() {
 		  );
 } 
 
-void die(FcChar8 *msg) {
+void die(char *msg) {
 	fprintf(stderr, "nenu [ERROR]: %s\n", msg);
 	exit(EXIT_FAILURE);
 }
@@ -86,11 +86,11 @@ void finish() {
 	exit(0);
 }
 
-int text_width(FcChar8 *str) {
+int text_width(char *str) {
 	XGlyphInfo g;
 	int len = strlen(str);
 
-	XftTextExtentsUtf8(display, font, str, len, &g);
+	XftTextExtents8(display, font, str, len, &g);
 	return g.width;
 }
 
@@ -115,14 +115,14 @@ void render_options(int oy) {
 }
 
 void render() {
-	FcChar8 *cursor_text;
+	char *cursor_text;
 	int cursor_pos;
 
 	update_size();
 	XftDrawRect(draw, &bg, 0, 0, w, h);
 
 	if (input_bar) {
-		cursor_text = malloc(sizeof(FcChar8) * (cursor + 1));
+		cursor_text = malloc(sizeof(char) * (cursor + 1));
 		strncpy(cursor_text, text, cursor);
 		cursor_text[cursor] = '\0';
 		cursor_pos = text_width(cursor_text);
@@ -140,7 +140,7 @@ void render() {
 	XCopyArea(display, buf, win, gc, 0, 0, w, h, 0, 0);
 }
 
-void insert(FcChar8 *str, ssize_t n) {
+void insert(char *str, ssize_t n) {
 	int i, j;
 
 	if (strlen(text) + n > MAX_LEN)
@@ -192,7 +192,7 @@ void handle_button(XButtonEvent be) {
 }
 
 void handle_key(XKeyEvent ke) {
-	FcChar8 buf[32];
+	char buf[32];
 	int len, n;
 	KeySym keysym = NoSymbol;
 	Status status;
@@ -247,10 +247,9 @@ void handle_key(XKeyEvent ke) {
 	if (input_bar) {
 		switch(keysym) {
 			default:
-				if (!iscntrl(*buf)) {
+				if (!iscntrl(*buf))
 					insert(buf, len);
-					update_valid_options();
-				}
+				update_valid_options();
 				break;
 
 			case XK_Delete: // How the fuck does this work?
@@ -351,7 +350,7 @@ void update_valid_options() {
 void select_forward_match() {
 	option *o;
 	int i, can_move = -1, good = 1;
-	FcChar8 c;
+	char c;
 
 	if (!valid)
 		return;
@@ -370,7 +369,7 @@ void select_forward_match() {
 	cursor = can_move;
 }
 
-void load_font(FcChar8 *fontstr) {
+void load_font(char *fontstr) {
 	FcPattern *pattern, *match;
 	FcResult result;
 
@@ -484,9 +483,24 @@ void keep_in_screen() {
 	}
 }
 
+char *clean_tabs(char *str) {
+	int i, t, c;
+	char *ret;
+	for (i = t = 0; str[i] && str[i] != '\n'; i++) if (str[i] == '\t') t++;
+	ret = calloc(sizeof(char), i + t * (TAB_WIDTH - 1) + 1);
+	for (i = c = 0; str[i] && str[i] != '\n'; i++) {
+		if (str[i] == '\t') 
+			for (t = 0; t < TAB_WIDTH; t++)
+				ret[c++] = ' ';
+		else ret[c++] = str[i];
+	}
+
+	ret[i] = '\0';
+	return ret;
+}
+
 void read_input() {
-	FcChar8 line[512];
-	int l;
+	char line[512];
 	option *o, *head;
 	head = malloc(sizeof(option));
 	head->next = NULL;
@@ -497,10 +511,7 @@ void read_input() {
 		o->next->prev = o;
 		o = o->next;
 
-		l = strlen(line);
-		o->text = calloc(sizeof(char), l);
-		strncpy(o->text, line, l - 1);
-		o->text[l - 1] = '\0';
+		o->text = clean_tabs(line);
 		o->next = NULL;
 	}
 
@@ -524,7 +535,7 @@ int main(int argc, char *argv[]) {
 
 	cursor = 0;
 	heading = "";
-	text = calloc(MAX_LEN, sizeof(FcChar8));
+	text = calloc(MAX_LEN, sizeof(char));
 	valid = NULL;
 	current = NULL;
 
@@ -554,7 +565,7 @@ int main(int argc, char *argv[]) {
 		} else if (strcmp(argv[i], "-fn") == 0) {
 			fontstr = argv[++i];
 		} else {
-			heading = argv[i];
+			heading = clean_tabs(argv[i]);
 		}
 	}
 
