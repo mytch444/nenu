@@ -47,7 +47,6 @@ static FcChar8 text[MAX_LEN];;
 static FcChar8 heading[MAX_LEN];
 
 static option *options = NULL;
-static option *current = NULL;
 static option *valid = NULL;
 
 void usage() {
@@ -85,13 +84,10 @@ void die(char *msg) {
 }
 
 void finish() {
-	if (complete_on_exit) {
-		if (current) printf("%s\n", current->text);
-	} else if (exit_on_one) {
-		if (valid) printf("%s\n", valid->text);
-	} else  {
+	if ((complete_on_exit || exit_on_one) && valid) 
+		printf("%s\n", valid->text);
+	else
 		printf("%s\n", text);
-	}
 	
 	clean_resources();
 	exit(EXIT_SUCCESS);
@@ -111,19 +107,19 @@ void draw_string(FcChar8 *str, int x, int y) {
 
 void render_options(int oy) {
 	option *o;
-	int flipped;
-	if (current) 
-		o = current;
-	else
-		o = valid;
 
-	for (flipped = 0; o; o = !o->next && !(flipped++) ? valid : o->next) {
-		if (flipped && o == current)
-			break;
+	for (o = valid; o; o = o->next) {
+		draw_string(o->text, PADDING, oy + ascent);
+		oy += ascent + descent;
+	}
+	
+	for (o = valid->prev; o && o->prev; o = o->prev);
+	for (; o; o = o->next) {
 		draw_string(o->text, PADDING, oy + ascent);
 		oy += ascent + descent;
 	}
 }
+
 
 void render() {
 	FcChar8 *cursor_text;
@@ -165,8 +161,8 @@ void insert(FcChar8 *str, ssize_t n) {
 }
 
 void copy_first() {
-	if (current) {
-		strcpy(text, current->text);
+	if (valid) {
+		strcpy(text, valid->text);
 		while (text[cursor] != '\0' && cursor < MAX_LEN - 1)
 			cursor = nextrune(+1);					
 		update_valid_options();
@@ -184,18 +180,16 @@ void handle_button(XButtonEvent be) {
 	option *o;
 	switch(be.button) {
 		case Button4:
-			if (current && current->prev)
-				current = current->prev;
-			else {
-				for (o = valid; o && o->next; o = o->next);
-				current = o;
-			}
+			if (valid->prev) 
+				valid = valid->prev;
+			else
+				for (; valid && valid->next; valid = valid->next);
 			break;
 		case Button5:
-			if (current && current->next)
-				current = current->next;
+			if (valid->next) 
+				valid = valid->next;
 			else
-				current = valid;
+			 	for (; valid && valid->prev; valid = valid->prev);	
 			break;
 		case Button1:
 			finish();
@@ -246,6 +240,10 @@ void handle_key(XKeyEvent ke) {
 				break;
 			case XK_d:
 				keysym = XK_Delete;
+				break;
+				
+			case XK_k:
+				text[cursor] = '\0';
 				break;
 		}
 	}
@@ -298,18 +296,16 @@ void handle_key(XKeyEvent ke) {
 
 	switch(keysym) {
 		case XK_Up:
-			if (current->prev) {
-				current = current->prev;
-			} else {
-				for (o = valid; o && o->next; o = o->next);
-				current = o;
-			}
+			if (valid->prev) 
+				valid = valid->prev;
+			else
+				for (; valid && valid->next; valid = valid->next);
 			break;
 		case XK_Down:
-			if (current->next)
-				current = current->next;
+			if (valid->next) 
+				valid = valid->next;
 			else
-				current = valid;
+			 	for (; valid && valid->prev; valid = valid->prev);
 			break;
 		case XK_Return:
 			finish();
@@ -321,10 +317,7 @@ void handle_key(XKeyEvent ke) {
 
 	if (exit_on_one) {
 		for (n = 0, o = valid; o; o = o->next) n++;
-		if (n == 1) {
-			current = valid;
-			finish();
-		}
+		if (n == 1) finish();
 	}
 
 	render();
@@ -350,7 +343,6 @@ void update_valid_options() {
 	if (valid)
 		valid->prev = NULL;
 	free(head);
-	current = valid;
 }
 
 void load_font(FcChar8 *font_str) {
@@ -415,7 +407,8 @@ void update_size() {
 	w = heading_width + cursor_width + text_width(text);
 	h = input_bar ? ascent + descent : 0;
 
-	for (o = valid; o; o = o->next) {
+	for (o = valid; o && o->prev; o = o->prev);
+	for (; o; o = o->next) {
 		tw = text_width(o->text);
 		if (tw > w)
 			w = tw;
