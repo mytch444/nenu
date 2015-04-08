@@ -11,7 +11,7 @@ user presses return nenu exits and prints what was typed to stdout.
 
 Check out the man page.
 
-Look in nexec, ntime and nwindow for examples of use. These are useable scripts
+Look in nexec, ntime and nwindow for examples of use. These are useful scripts
 in their own right.
 
 On exit returns 0, unless escape was pressed, then returns 1.
