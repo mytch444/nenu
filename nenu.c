@@ -231,6 +231,7 @@ void handle_key(XKeyEvent ke) {
 			case XK_e:
 				keysym = XK_End;
 				break;
+
 			case XK_p:
 				keysym = XK_Up;
 				break;
@@ -246,22 +247,7 @@ void handle_key(XKeyEvent ke) {
 			case XK_d:
 				keysym = XK_Delete;
 				break;
-				// Vim
-			case XK_j:
-				keysym = XK_Down;
-				break;
-			case XK_k:
-				keysym = XK_Up;
-				break;
-			case XK_h:
-				keysym = XK_Left;
-				break;
-			case XK_l:
-				keysym = XK_Right;
-				break;
 		}
-	} else if (ke.state & Mod1Mask) {
-
 	}
 
 	if (input_bar) {
@@ -273,11 +259,11 @@ void handle_key(XKeyEvent ke) {
 				}
 				break;
 
-			case XK_Delete: // How the fuck does this work?
-				if (text[cursor] == '\0')
-					return;
+			case XK_Delete:
+				if (text[cursor] == '\0') break;
 				cursor = nextrune(+1);
-				update_valid_options();
+				
+				/* Fall through to backspace */
 
 			case XK_BackSpace:
 				if (cursor == 0)
@@ -296,7 +282,7 @@ void handle_key(XKeyEvent ke) {
 				break;
 
 			case XK_Right:
-				if (text[cursor] != '\0' && cursor < MAX_LEN - 1)
+				if (text[cursor] != '\0') 
 					cursor = nextrune(+1);
 				break;
 
@@ -305,7 +291,7 @@ void handle_key(XKeyEvent ke) {
 				break;
 			
 			case XK_End:
-				while (text[cursor] != '\0' && cursor < MAX_LEN - 1)
+				while (text[cursor] != '\0')
 					cursor = nextrune(+1);
 		}
 	}
