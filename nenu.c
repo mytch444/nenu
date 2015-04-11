@@ -244,6 +244,9 @@ void handle_key(XKeyEvent ke) {
 			case XK_d:
 				keysym = XK_Delete;
 				break;
+			case XK_bracketleft:
+				keysym = XK_Escape;
+				break;
 			case XK_k:
 				text[cursor] = '\0';
 				break;
