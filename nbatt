@@ -2,4 +2,4 @@
 
 # uses battery from http://github.com/mytch444/battery-utils
 
-battery | nenu -n
+nenu -t -n -q "`battery`"

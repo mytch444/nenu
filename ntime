@@ -1,2 +1,2 @@
 #!/bin/sh
-date +"%H:%M:%S %a %h %d %Y" | nenu -n
+nenu -t -n -q "`date +\"%H:%M:%S %a %h %d %Y\"`"

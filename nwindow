@@ -2,6 +2,6 @@
 # wmutils's chwso to show menu of mapped windows, select one then raise it.
 
 N=`(for p in $(lsw | tac); do echo " $(wname $p)"; done) | \
-	nl -n rz -s ' ' -w 2 | nenu -n | cut -d' ' -f1`
+	nl -n rz -s ' ' -w 2 | nenu -t -f | cut -d' ' -f1`
 
 [ ! -z $N ] && lsw | tac | head -$N | tail -1 | cut -d' ' -f1 | xargs chwso -r

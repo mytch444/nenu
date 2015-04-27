@@ -31,42 +31,49 @@ static XftColor fg, bg;
 
 static XftFont *font;
 static int ascent, descent;
-static int heading_width, cursor_width;
+static int prompt_width, cursor_width;
 
 static int x = -1, y = -1;
 static int w = 0, h = 0;
 
 static int exit_on_one = 0;
-static int complete_on_exit = 0;
-static int input_bar = 1;
+static int first_on_exit = 0;
+static int text_input = 1;
 static int read_options = 1;
+static int print_on_exit = 1;
 static int absolute_position = 0;
 
 static size_t cursor = 0;
-static FcChar8 text[MAX_LEN];;
-static FcChar8 heading[MAX_LEN];
+static FcChar8 text[MAX_LEN] = {'\0'};
+static FcChar8 prompt[MAX_LEN] = {'\0'};
 
 static option *options = NULL;
 static option *valid = NULL;
 
 void usage() {
 	printf(
-			"usage: nenu [-a|-c|-n|-e|-p x,y|-ap] [header]\n"
+			"usage: nenu [options] [prompt]\n"
 			"\n"
 			"nenu takes options from stdin and displays them in a list, allowing the user to choose their deisred option.\n"
 			"\n"
-			"    -a    : exits as soon as there is only one match.\n"
-			"    -c    : on exit return the match at the begining of the list. if there is\n"
-			"            no match nenu returns the user input\n"
-			"    -n    : no input bar is displayed and -c is put on.\n"
-			"    -e    : takes no input from stdin\n"
+			"    -o   : exits as soon as there is only ONE match.\n"
+			"    -f   : on exit return the FIRST match.\n"
+			"           if there are no matchs return user input.\n"
+			"    -t   : no TEXT input\n"
+			"    -q   : no output on exit\n"
+			"    -n   : take NO input from stdin\n"
 			"\n"
-			"    -p x,y: set window position\n"
-			"    -ap   : don't shift the window so it stays inside the screen\n"
+			"    --pos x,y\n"
+			"         : set window position\n"
+			"    --abs\n"
+			"         : don't shift the window so it stays inside the screen\n"
 			"\n"
-			"    -fg c : set foreground and border color\n"
-			"    -bg c : set background color\n"
-			"    -fn font    : set font.\n"
+			"    --fg c\n"
+			"         : set foreground and border color\n"
+			"    --bg c\n"
+			"         : set background color\n"
+			"    --fn font\n"
+			"         : set font.\n"
 		  );
 } 
 
@@ -84,10 +91,12 @@ void die(char *msg) {
 }
 
 void finish() {
-	if ((complete_on_exit || exit_on_one) && valid) 
-		printf("%s\n", valid->text);
-	else
-		printf("%s\n", text);
+	if (print_on_exit) {
+		if ((first_on_exit || exit_on_one) && valid) 
+			printf("%s\n", valid->text);
+		else
+			printf("%s\n", text);
+	}
 	
 	clean_resources();
 	exit(EXIT_SUCCESS);
@@ -126,29 +135,32 @@ void render_options(int oy) {
 }
 
 void render() {
-	FcChar8 *cursor_text;
-	int cursor_pos, padding = 0;
-	FcChar8 bar[MAX_LEN];
+	int cursor_pos, p;
+	FcChar8 t;
 
 	update_size();
 	update_position();
 	
 	XftDrawRect(draw, &bg, 0, 0, w, h);
 
-	if (input_bar) {
-		sprintf(bar, "%s%s", heading, text);
-		draw_string(bar, PADDING, PADDING + ascent);
+	if (prompt[0])
+		draw_string(prompt, PADDING, PADDING + ascent);
+
+	if (text_input) {
+		draw_string(text, PADDING + prompt_width, PADDING + ascent);
 		
-		bar[strlen(heading) + cursor] = '\0';
-		cursor_pos = text_width(bar);
+		t = text[cursor];
+		text[cursor] = '\0';
+		cursor_pos = prompt_width + text_width(text);
+		text[cursor] = t;
 
 		draw_string("_", PADDING + 1 + cursor_pos, 
 				PADDING + ascent);
-
-		padding = ascent + 5;
 	}
 
-	render_options(PADDING + padding);
+	if (text_input || prompt[0]) p = ascent + descent;
+	else p = 0;
+	render_options(PADDING + p);
 	XCopyArea(display, buf, win, gc, 0, 0, w, h, 0, 0);
 }
 
@@ -253,7 +265,7 @@ void handle_key(XKeyEvent ke) {
 		}
 	}
 
-	if (input_bar) {
+	if (text_input) {
 		switch(keysym) {
 			default:
 				if (!iscntrl(*buf)) {
@@ -408,11 +420,12 @@ void update_size() {
 	int ow = w, oh = h;
 	option *o;
 
-	heading_width = text_width(heading);
+	prompt_width = text_width(prompt);
 	cursor_width = text_width("_");
 
-	w = heading_width + cursor_width + text_width(text);
-	h = input_bar ? ascent + descent : 0;
+
+	w = prompt_width + cursor_width + text_width(text);
+	h = (text_input || prompt[0]) ? ascent + descent : 0;
 
 	for (o = valid; o && o->prev; o = o->prev);
 	for (; o; o = o->next) {
@@ -542,38 +555,40 @@ int main(int argc, char *argv[]) {
 	int i;
 
 	for (i = 1; i < argc; i++) {
-		if (strcmp(argv[i], "-h") == 0) {
-			usage();
-			exit(EXIT_SUCCESS);
-		} else if (strcmp(argv[i], "-a") == 0) {
-			exit_on_one = 1;
-		} else if (strcmp(argv[i], "-c") == 0) {
-			complete_on_exit = 1;
-		} else if (strcmp(argv[i], "-n") == 0) {
-			complete_on_exit = 1;
-			input_bar = 0;
-		} else if (strcmp(argv[i], "-e") == 0) {
-			read_options = 0;
-		} else if (strcmp(argv[i], "-p") == 0) {
+		if (argv[i][0] == '-') {
+			switch (argv[i][1])
+			{
+			case 'h':
+				usage();
+				exit(EXIT_SUCCESS);
+			case 'o': exit_on_one = 1; break;
+			case 'f': first_on_exit = 1; break;
+			case 't': text_input = 0; break;
+			case 'q': print_on_exit = 0; break;
+			case 'n': read_options = 0; break;
+			default:
+				fprintf(stderr, "Unknown option: %s\n", argv[i]);
+				exit(EXIT_FAILURE);
+			}
+		} else if (strcmp(argv[i], "--p") == 0) {
 			x = atoi(strsep(&argv[++i], ","));
 			y = atoi(argv[i]);
-		} else if (strcmp(argv[i], "-ap") == 0) {
+		} else if (strcmp(argv[i], "--abs") == 0) {
 			absolute_position = 1;
-		} else if (strcmp(argv[i], "-fg") == 0) {
+		} else if (strcmp(argv[i], "--fg") == 0) {
 			strcpy(fg_name, argv[++i]);
-		} else if (strcmp(argv[i], "-bg") == 0) {
+		} else if (strcmp(argv[i], "--bg") == 0) {
 			strcpy(bg_name, argv[++i]);
-		} else if (strcmp(argv[i], "-fn") == 0) {
+		} else if (strcmp(argv[i], "--fn") == 0) {
 			strcpy(font_str, argv[++i]);
 		} else {
-			strcpy(heading, argv[i]);
+			strcpy(prompt, argv[i]);
 		}
 	}
 
 	setup();
 
-	if (read_options) 
-		read_input();
+	if (read_options) read_input();
 
 	render();
 
