@@ -4,7 +4,7 @@ PREFIX?=/usr
 all: nenu
 
 nenu: nenu.c config.h
-	@gcc -o nenu nenu.c \
+	gcc -o nenu nenu.c \
 		-lX11 \
 		-lXft \
 		-lXrender \

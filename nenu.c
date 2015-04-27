@@ -555,7 +555,18 @@ int main(int argc, char *argv[]) {
 	int i;
 
 	for (i = 1; i < argc; i++) {
-		if (argv[i][0] == '-') {
+		if (strcmp(argv[i], "--p") == 0) {
+			x = atoi(strsep(&argv[++i], ","));
+			y = atoi(argv[i]);
+		} else if (strcmp(argv[i], "--abs") == 0) {
+			absolute_position = 1;
+		} else if (strcmp(argv[i], "--fg") == 0) {
+			strcpy(fg_name, argv[++i]);
+		} else if (strcmp(argv[i], "--bg") == 0) {
+			strcpy(bg_name, argv[++i]);
+		} else if (strcmp(argv[i], "--fn") == 0) {
+			strcpy(font_str, argv[++i]);
+		} else if (argv[i][0] == '-') {
 			switch (argv[i][1])
 			{
 			case 'h':
@@ -567,20 +578,10 @@ int main(int argc, char *argv[]) {
 			case 'q': print_on_exit = 0; break;
 			case 'n': read_options = 0; break;
 			default:
-				fprintf(stderr, "Unknown option: %s\n", argv[i]);
+				fprintf(stderr, "Unknown option: %s\n",
+					argv[i]);
 				exit(EXIT_FAILURE);
 			}
-		} else if (strcmp(argv[i], "--p") == 0) {
-			x = atoi(strsep(&argv[++i], ","));
-			y = atoi(argv[i]);
-		} else if (strcmp(argv[i], "--abs") == 0) {
-			absolute_position = 1;
-		} else if (strcmp(argv[i], "--fg") == 0) {
-			strcpy(fg_name, argv[++i]);
-		} else if (strcmp(argv[i], "--bg") == 0) {
-			strcpy(bg_name, argv[++i]);
-		} else if (strcmp(argv[i], "--fn") == 0) {
-			strcpy(font_str, argv[++i]);
 		} else {
 			strcpy(prompt, argv[i]);
 		}
