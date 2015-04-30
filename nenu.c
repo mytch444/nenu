@@ -420,8 +420,8 @@ void grab_keyboard_pointer() {
 
 	if (!grab) return;
 	for (i = 0; (k || p) && i < 1000; i++) {
-		if (p && XGrabPointer(display, root, 
-		                 False, ButtonPressMask,
+		if (p && XGrabPointer(display, root, False,
+		                 ButtonPressMask|ButtonReleaseMask,
 		                 GrabModeAsync, GrabModeAsync, 
 		                 win, nullcursor, CurrentTime) 
 				== GrabSuccess) p = 0;
@@ -559,7 +559,7 @@ void setup() {
 	attributes.background_pixel = bg.pixel;
 	attributes.override_redirect = True;
 	attributes.event_mask = 
-	     ExposureMask|KeyPressMask|ButtonPressMask;
+	     ExposureMask|KeyPressMask|ButtonPressMask|ButtonReleaseMask;
 
 	win = XCreateWindow(display, root,
 	     0, 0, 1, 1, BORDER_WIDTH,
@@ -634,7 +634,7 @@ int main(int argc, char *argv[]) {
 	while (!XNextEvent(display, &ev)) {
 		if (ev.type == KeyPress)
 			handle_key(ev.xkey);
-		else if (ev.type == ButtonPress)
+		else if (ev.type == ButtonRelease)
 			handle_button(ev.xbutton);
 		else if  (ev.type == Expose) {
 			XRaiseWindow(display, win);
