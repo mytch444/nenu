@@ -5,7 +5,7 @@
 nenu - nilps menu
 .SH SYNOPSIS
 .B nenu
-.RB [\-oftqn]
+.RB [\-oftqng]
 .RB [ \-\-p
 .IR x,y ]
 .RB [ \-\-abs ]
@@ -36,6 +36,10 @@ No output on exit.
 .TP
 .B \-n
 Takes no input from stdin.
+.TP
+.B \-g
+Doesn't grab keyboard and pointer (Useful if you want to just notify).
+The user can still select with the mouse if you enable -f as well.
 .TP
 .BI \-\-p " x,y"
 Positions the window at x,y (you will probably want to --abs as well).

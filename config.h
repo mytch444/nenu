@@ -5,6 +5,6 @@
 #define TAB_WIDTH 4
 
 char bg_name[] = "#000000";
-char fg_name[] = "#eeeeee";
+char fg_name[] = "#cccccc";
 
-char font_str[] = "DejaVu Sans Mono:pixelsize=11:antialias=false";
+char font_str[] = "DejaVuSansMono:pixelsize=13:antialias=false:autohint=false";

@@ -24,6 +24,8 @@ static Drawable buf;
 static XftDraw *draw;
 static Pixmap nullpixmap;
 
+static int max_width, max_height;
+
 static XIM xim;
 static XIC xic;
 
@@ -42,6 +44,7 @@ static int text_input = 1;
 static int read_options = 1;
 static int print_on_exit = 1;
 static int absolute_position = 0;
+static int grab = 1;
 
 static size_t cursor = 0;
 static FcChar8 text[MAX_LEN] = {'\0'};
@@ -52,29 +55,31 @@ static option *valid = NULL;
 
 void usage() {
 	printf(
-			"usage: nenu [options] [prompt]\n"
-			"\n"
-			"nenu takes options from stdin and displays them in a list, allowing the user to choose their deisred option.\n"
-			"\n"
-			"    -o   : exits as soon as there is only ONE match.\n"
-			"    -f   : on exit return the FIRST match.\n"
-			"           if there are no matchs return user input.\n"
-			"    -t   : no TEXT input\n"
-			"    -q   : no output on exit\n"
-			"    -n   : take NO input from stdin\n"
-			"\n"
-			"    --pos x,y\n"
-			"         : set window position\n"
-			"    --abs\n"
-			"         : don't shift the window so it stays inside the screen\n"
-			"\n"
-			"    --fg c\n"
-			"         : set foreground and border color\n"
-			"    --bg c\n"
-			"         : set background color\n"
-			"    --fn font\n"
-			"         : set font.\n"
-		  );
+"usage: nenu [options] [prompt]\n"
+"\n"
+"    nenu takes options from stdin and displays them in a list,\n"
+"    allowing the user to choose their deisred option.\n"
+"\n"
+"    -o   : exits as soon as there is only ONE match.\n"
+"    -f   : on exit return the FIRST match.\n"
+"           if there are no matchs return user input.\n"
+"    -t   : no TEXT input\n"
+"    -q   : no output on exit\n"
+"    -n   : take NO input from stdin\n"
+"    -g   : don't grab keyboard and cursor (useful if you just want it as a message)\n"
+"\n"
+"    --pos x,y\n"
+"         : set window position\n"
+"    --abs\n"
+"         : don't shift the window so it stays inside the screen\n"
+"\n"
+"    --fg c\n"
+"         : set foreground and border color\n"
+"    --bg c\n"
+"         : set background color\n"
+"    --fn font\n"
+"         : set font.\n"
+	);
 } 
 
 void clean_resources() {
@@ -116,7 +121,9 @@ int text_width(FcChar8 *s) {
 }
 
 void draw_string(FcChar8 *s, int x, int y) {
-	XftDrawStringUtf8(draw, &fg, font, x, y, (FcChar8 *) s, strlen(s));
+	if (x > w * 2 || y > h * 2) return;
+	XftDrawStringUtf8(draw, &fg, font, x, y,
+	                  (FcChar8 *) s, strlen(s));
 }
 
 void render_options(int oy) {
@@ -147,7 +154,8 @@ void render() {
 		draw_string(prompt, PADDING, PADDING + ascent);
 
 	if (text_input) {
-		draw_string(text, PADDING + prompt_width, PADDING + ascent);
+		draw_string(text, PADDING + prompt_width,
+		                  PADDING + ascent);
 		
 		t = text[cursor];
 		text[cursor] = '\0';
@@ -170,7 +178,8 @@ void insert(FcChar8 *str, ssize_t n) {
 	if (strlen(text) + n > MAX_LEN)
 		return;
 
-	memmove(&text[cursor + n], &text[cursor], MAX_LEN - cursor - MAX(n, 0));
+	memmove(&text[cursor + n], &text[cursor], 
+	        MAX_LEN - cursor - MAX(n, 0));
 	if (n > 0)
 		memcpy(&text[cursor], str, n);
 	cursor += n;
@@ -185,11 +194,14 @@ void copy_first() {
 	}
 }
 
-// return location of next utf8 rune in the given direction -- thanks dmenu
+/* return location of next utf8 rune in the given direction
+ * -- thanks dmenu */
 size_t nextrune(int inc) {
 	ssize_t n;
 
-	for (n = cursor + inc; n + inc >= 0 && (text[n] & 0xc0) == 0x80; n += inc);
+	for (n = cursor + inc;
+	     n + inc >= 0 && (text[n] & 0xc0) == 0x80;
+	     n += inc);
 	return n;
 }
 
@@ -200,13 +212,15 @@ void handle_button(XButtonEvent be) {
 			if (valid->prev) 
 				valid = valid->prev;
 			else
-				for (; valid && valid->next; valid = valid->next);
+				for (; valid && valid->next;
+				     valid = valid->next);
 			break;
 		case Button5:
 			if (valid->next) 
 				valid = valid->next;
 			else
-			 	for (; valid && valid->prev; valid = valid->prev);	
+			 	for (; valid && valid->prev;
+			 	     valid = valid->prev);	
 			break;
 		case Button1:
 			finish();
@@ -229,7 +243,8 @@ void handle_key(XKeyEvent ke) {
 	Status status;
 	option *o;
 
-	len = XmbLookupString(xic, &ke, buf, sizeof(buf), &keysym, &status);
+	len = XmbLookupString(xic, &ke, buf, sizeof(buf),
+	                      &keysym, &status);
 	if (status == XBufferOverflow)
 		return;
 
@@ -316,13 +331,17 @@ void handle_key(XKeyEvent ke) {
 			if (valid->prev) 
 				valid = valid->prev;
 			else
-				for (; valid && valid->next; valid = valid->next);
+				for (; 
+				     valid && valid->next; 
+				     valid = valid->next);
 			break;
 		case XK_Down:
 			if (valid->next) 
 				valid = valid->next;
 			else
-			 	for (; valid && valid->prev; valid = valid->prev);
+			 	for (; 
+			 	     valid && valid->prev;
+			 	     valid = valid->prev);
 			break;
 		case XK_Return:
 			finish();
@@ -395,20 +414,23 @@ void grab_keyboard_pointer() {
 	Cursor nullcursor;
 
 	nullpixmap = XCreatePixmap(display, root, 1, 1, 1);
-	nullcursor = XCreatePixmapCursor(display, nullpixmap, nullpixmap, 
-			&dummycolor, &dummycolor, 0, 0);
+	nullcursor = XCreatePixmapCursor(display,
+	                nullpixmap, nullpixmap, 
+	                &dummycolor, &dummycolor, 0, 0);
 
+	if (!grab) return;
 	for (i = 0; (k || p) && i < 1000; i++) {
-		if (p && XGrabPointer(display, root, False, ButtonPressMask,
-					GrabModeAsync, GrabModeAsync, 
-					win, nullcursor, CurrentTime) 
+		if (p && XGrabPointer(display, root, 
+		                 False, ButtonPressMask,
+		                 GrabModeAsync, GrabModeAsync, 
+		                 win, nullcursor, CurrentTime) 
 				== GrabSuccess) p = 0;
 
 		if (k && XGrabKeyboard(display, root, True, 
-					GrabModeAsync, GrabModeAsync,
-					CurrentTime) == GrabSuccess) k = 0;
+		               GrabModeAsync, GrabModeAsync,
+		               CurrentTime) == GrabSuccess) k = 0;
 
-		usleep(1000);
+		usleep(10000);
 	}
 
 	if (p) die("Failed to grab pointer!");
@@ -416,36 +438,36 @@ void grab_keyboard_pointer() {
 }
 
 void update_size() { 
-	int tw;
 	int ow = w, oh = h;
+	int tw, bw, bh;
 	option *o;
 
 	prompt_width = text_width(prompt);
 	cursor_width = text_width("_");
-
-
-	w = prompt_width + cursor_width + text_width(text);
-	h = (text_input || prompt[0]) ? ascent + descent : 0;
-
+	
+	bw = w = (text_input ? cursor_width : 0) 
+	          + prompt_width + text_width(text);
+	bh = h = (text_input || prompt[0]) ? ascent + descent : 0;
+	
 	for (o = valid; o && o->prev; o = o->prev);
 	for (; o; o = o->next) {
 		tw = text_width(o->text);
-		if (tw > w)
-			w = tw;
+		if (tw > w) w = tw;
 		h += ascent + descent;
 	}
 
+	if (h > max_height) { w = bw; h = bh; }
+	
 	w += PADDING * 2;
 	h += PADDING * 2;
-
-	if (ow == w && oh == h)
-		return;
+	
+	if (ow == w && oh == h) return;
 
 	XResizeWindow(display, win, w, h);
 
-	if (buf)
-		XFreePixmap(display, buf);
-	buf = XCreatePixmap(display, win, w, h, DefaultDepth(display, screen));
+	if (buf) XFreePixmap(display, buf);
+	buf = XCreatePixmap(display, win, w, h, 
+	                    DefaultDepth(display, screen));
 	XftDrawChange(draw, buf);
 }
 
@@ -455,7 +477,8 @@ void update_position() {
 
 	/* if x,y not set then set to cursor position. */
 	if (x == -1 && y == -1) 
-		XQueryPointer(display, root, &ww, &ww, &x, &y, &c, &c, &v);
+		XQueryPointer(display, root, &ww, &ww,
+		    &x, &y, &c, &c, &v);
 
 	if (!absolute_position)
 		keep_in_screen();
@@ -476,10 +499,12 @@ void keep_in_screen() {
 		if (i == count) return;
 
 		if (x + w > info[i].x_org + info[i].width)
-			x = info[i].x_org + info[i].width - w - BORDER_WIDTH - 1;
+			x = info[i].x_org + info[i].width 
+			    - w - BORDER_WIDTH - 1;
 		if (x < info[i].x_org) x = info[i].x_org;
 		if (y + h > info[i].y_org + info[i].height)
-			y = info[i].y_org + info[i].height - h - BORDER_WIDTH - 1;
+			y = info[i].y_org + info[i].height 
+			    - h - BORDER_WIDTH - 1;
 		if (y < info[i].y_org) y = info[i].y_org;
 	}
 }
@@ -512,12 +537,17 @@ void setup() {
 	XWindowAttributes window_attributes;
 	Visual *vis;
 	Colormap cmap;
+	int ignore;
 	
 	display = XOpenDisplay(NULL);
-	root = RootWindow(display, 0);
 	screen = DefaultScreen(display);
 	vis = XDefaultVisual(display, screen);
 	cmap = DefaultColormap(display, screen);
+
+	if (XGetGeometry(display, RootWindow(display, screen), &root,
+	        &ignore, &ignore,
+	        &max_width, &max_height, &ignore, &ignore) == False)
+	        die("Failed to get root Geometry!");
 
 	if (!XftColorAllocName(display, vis, cmap, fg_name, &fg))
 		die("Failed to allocate foreground color");
@@ -528,23 +558,26 @@ void setup() {
 	attributes.border_pixel = fg.pixel;
 	attributes.background_pixel = bg.pixel;
 	attributes.override_redirect = True;
-	attributes.event_mask = ExposureMask | KeyPressMask | ButtonPressMask;
+	attributes.event_mask = 
+	     ExposureMask|KeyPressMask|ButtonPressMask;
 
 	win = XCreateWindow(display, root,
-			0, 0, 1, 1, BORDER_WIDTH,
-			DefaultDepth(display, 0),
-			CopyFromParent, CopyFromParent,
-			CWBackPixel | CWOverrideRedirect | CWEventMask 
-			| CWBorderPixel,
-			&attributes);
+	     0, 0, 1, 1, BORDER_WIDTH,
+	     DefaultDepth(display, 0),
+	     CopyFromParent, CopyFromParent,
+	     CWBackPixel|CWOverrideRedirect|CWEventMask|CWBorderPixel,
+	     &attributes);
 
 	xim = XOpenIM(display, NULL, NULL, NULL);
-	xic = XCreateIC(xim, XNInputStyle, XIMPreeditNothing | XIMStatusNothing,
-			XNClientWindow, win, XNFocusWindow, win, NULL);
+	xic = XCreateIC(xim, XNInputStyle, 
+	    XIMPreeditNothing | XIMStatusNothing,
+	    XNClientWindow, win, XNFocusWindow, win, NULL);
 
 	gc = XCreateGC(display, win, 0, 0);
 
-	buf = XCreatePixmap(display, win, 1, 1, DefaultDepth(display, screen));
+	buf = XCreatePixmap(display, win, 1, 1, 
+	    DefaultDepth(display, screen));
+	    
 	draw = XftDrawCreate(display, buf, vis, cmap);
 
 	load_font(font_str);
@@ -577,6 +610,7 @@ int main(int argc, char *argv[]) {
 			case 't': text_input = 0; break;
 			case 'q': print_on_exit = 0; break;
 			case 'n': read_options = 0; break;
+			case 'g': grab = 0; break;
 			default:
 				fprintf(stderr, "Unknown option: %s\n",
 					argv[i]);
