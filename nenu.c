@@ -25,6 +25,7 @@ static XftDraw *draw;
 static Pixmap nullpixmap;
 
 static int max_width, max_height;
+static int draw_options;
 
 static XIM xim;
 static XIC xic;
@@ -142,7 +143,7 @@ void render_options(int oy) {
 }
 
 void render() {
-	int cursor_pos, p;
+	int cursor_pos;
 	FcChar8 t;
 
 	update_size();
@@ -166,9 +167,10 @@ void render() {
 				PADDING + ascent);
 	}
 
-	if (text_input || prompt[0]) p = ascent + descent;
-	else p = 0;
-	render_options(PADDING + p);
+	if (draw_options)
+		render_options(PADDING + ((text_input || prompt[0]) ?
+		                ascent + descent : 0));
+
 	XCopyArea(display, buf, win, gc, 0, 0, w, h, 0, 0);
 }
 
@@ -468,6 +470,14 @@ void update_size() {
 	if (buf) XFreePixmap(display, buf);
 	buf = XCreatePixmap(display, win, w, h, 
 	                    DefaultDepth(display, screen));
+	if (!buf)
+	{
+		w = bw;
+		h = bw;
+		draw_options = 0;
+		buf = XCreatePixmap(display, win, w, h, 
+	                            DefaultDepth(display, screen));	
+	} else draw_options = 1;
 	XftDrawChange(draw, buf);
 }
 

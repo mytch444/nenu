@@ -84,6 +84,8 @@ Move cursor to end.
 Copies the first option into user input.
 .SH RETURNS
 Returns 1 if the user types escape, else 0.
+.SH NOTEs
+If nenu fails to alloc the space needed for drawing the menu it will try again with just the top (prompt/input) bar.
 .SH BUGS
 XftTextExtentsUtf8 and XftDrawStringUtf8 don't play nicely with spaces and tabs.
 When you find them tell me, or even better, fix it, then tell me.
