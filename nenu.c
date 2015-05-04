@@ -167,6 +167,7 @@ void render() {
 				PADDING + ascent);
 	}
 
+	printf("draw options = %i\n", draw_options);
 	if (draw_options)
 		render_options(PADDING + ((text_input || prompt[0]) ?
 		                ascent + descent : 0));
@@ -421,21 +422,26 @@ void grab_keyboard_pointer() {
 	                &dummycolor, &dummycolor, 0, 0);
 
 	if (!grab) return;
-	for (i = 0; (k || p) && i < 1000; i++) {
-		if (p && XGrabPointer(display, root, False,
+	/* Keep trying for pointer. */
+	for (; p; ) {
+		if (XGrabPointer(display, root, False,
 		                 ButtonPressMask|ButtonReleaseMask,
 		                 GrabModeAsync, GrabModeAsync, 
 		                 win, nullcursor, CurrentTime) 
-				== GrabSuccess) p = 0;
-
-		if (k && XGrabKeyboard(display, root, True, 
-		               GrabModeAsync, GrabModeAsync,
-		               CurrentTime) == GrabSuccess) k = 0;
-
+				== GrabSuccess)
+			p = 0;
 		usleep(10000);
 	}
+	/* Because we won't grab keyboard until pointer has been
+	 * gotten. Then only try a few times for keyboard */
+	for (i = 0; k && i < 1000; i++) {
+		if (XGrabKeyboard(display, root, True, 
+		               GrabModeAsync, GrabModeAsync,
+		               CurrentTime) == GrabSuccess)
+			k = 0;
+		usleep(1000);
+	}
 
-	if (p) die("Failed to grab pointer!");
 	if (k) die("Failed to grab keyboard!");
 }
 
@@ -458,26 +464,27 @@ void update_size() {
 		h += ascent + descent;
 	}
 
-	if (h > max_height) { w = bw; h = bh; }
+	if (h > max_height)
+	{
+		w = bw;
+		h = bh;
+		draw_options = 0;
+	} else draw_options = 1;
 	
+
 	w += PADDING * 2;
 	h += PADDING * 2;
 	
 	if (ow == w && oh == h) return;
-
-	XResizeWindow(display, win, w, h);
-
+	
+	printf("changing size\n");
 	if (buf) XFreePixmap(display, buf);
 	buf = XCreatePixmap(display, win, w, h, 
 	                    DefaultDepth(display, screen));
-	if (!buf)
-	{
-		w = bw;
-		h = bw;
-		draw_options = 0;
-		buf = XCreatePixmap(display, win, w, h, 
-	                            DefaultDepth(display, screen));	
-	} else draw_options = 1;
+	printf("buf = %i\n", buf);
+	printf("resize\n");
+	XResizeWindow(display, win, w, h);
+	printf("draw change\n");
 	XftDrawChange(draw, buf);
 }
 
@@ -488,7 +495,7 @@ void update_position() {
 	/* if x,y not set then set to cursor position. */
 	if (x == -1 && y == -1) 
 		XQueryPointer(display, root, &ww, &ww,
-		    &x, &y, &c, &c, &v);
+		              &x, &y, &c, &c, &v);
 
 	if (!absolute_position)
 		keep_in_screen();
@@ -586,7 +593,7 @@ void setup() {
 	gc = XCreateGC(display, win, 0, 0);
 
 	buf = XCreatePixmap(display, win, 1, 1, 
-	    DefaultDepth(display, screen));
+	                    DefaultDepth(display, screen));
 	    
 	draw = XftDrawCreate(display, buf, vis, cmap);
 
@@ -635,11 +642,10 @@ int main(int argc, char *argv[]) {
 
 	if (read_options) read_input();
 
-	render();
-
+	update_position();
 	XMapWindow(display, win);
-
 	grab_keyboard_pointer();
+	render();
 
 	while (!XNextEvent(display, &ev)) {
 		if (ev.type == KeyPress)
