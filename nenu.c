@@ -167,7 +167,6 @@ void render() {
 				PADDING + ascent);
 	}
 
-	printf("draw options = %i\n", draw_options);
 	if (draw_options)
 		render_options(PADDING + ((text_input || prompt[0]) ?
 		                ascent + descent : 0));
@@ -477,14 +476,10 @@ void update_size() {
 	
 	if (ow == w && oh == h) return;
 	
-	printf("changing size\n");
 	if (buf) XFreePixmap(display, buf);
 	buf = XCreatePixmap(display, win, w, h, 
 	                    DefaultDepth(display, screen));
-	printf("buf = %i\n", buf);
-	printf("resize\n");
 	XResizeWindow(display, win, w, h);
-	printf("draw change\n");
 	XftDrawChange(draw, buf);
 }
 
