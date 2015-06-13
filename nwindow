@@ -1,5 +1,7 @@
 #!/bin/sh
-# wmutils's chwso to show menu of mapped windows, select one then raise it.
+# you'll need [chwso](http://github.com/mytch444/chwso) 
+# and lsw from suckless.org
+# shows list of mapped windows, raises selected one.
 
 N=`lsw | nenu -t -f | cut -d' ' -f1`
 chwso -r $N

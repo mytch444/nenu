@@ -60,26 +60,6 @@ void usage() {
 "\n"
 "    nenu takes options from stdin and displays them in a list,\n"
 "    allowing the user to choose their deisred option.\n"
-"\n"
-"    -o   : exits as soon as there is only ONE match.\n"
-"    -f   : on exit return the FIRST match.\n"
-"           if there are no matchs return user input.\n"
-"    -t   : no TEXT input\n"
-"    -q   : no output on exit\n"
-"    -n   : take NO input from stdin\n"
-"    -g   : don't grab keyboard and cursor (useful if you just want it as a message)\n"
-"\n"
-"    --pos x,y\n"
-"         : set window position\n"
-"    --abs\n"
-"         : don't shift the window so it stays inside the screen\n"
-"\n"
-"    --fg c\n"
-"         : set foreground and border color\n"
-"    --bg c\n"
-"         : set background color\n"
-"    --fn font\n"
-"         : set font.\n"
 	);
 } 
 
@@ -145,7 +125,7 @@ void render_options(int oy) {
 void render() {
 	int cursor_pos;
 	FcChar8 t;
-
+	
 	update_size();
 	update_position();
 	
@@ -234,8 +214,6 @@ void handle_button(XButtonEvent be) {
 			finish();
 			break;
 	}
-
-	render();
 }
 
 void handle_key(XKeyEvent ke) {
@@ -357,18 +335,18 @@ void handle_key(XKeyEvent ke) {
 		for (n = 0, o = valid; o; o = o->next) n++;
 		if (n == 1) finish();
 	}
-
-	render();
 }
 
 void update_valid_options() {
 	option *head, *o, *v;
-	v = head = calloc(sizeof(option), 1);
-
 	for (o = valid; o && o->prev; o = o->prev);
-	for (; o; o = o->next) 
+	while (o) {
+		v = o->next;
 		free(o);
+		o = v;
+	}
 
+	v = head = calloc(sizeof(option), 1);
 	for (o = options; o; o = o->next) {
 		if (strncmp(text, o->text, strlen(text)) == 0) {
 			v->next = malloc(sizeof(option));
@@ -597,10 +575,10 @@ void setup() {
 
 int main(int argc, char *argv[]) {
 	XEvent ev;
-	int i;
-
+	int i, time, pending;
+	
 	for (i = 1; i < argc; i++) {
-		if (strcmp(argv[i], "--p") == 0) {
+		if (strcmp(argv[i], "--pos") == 0) {
 			x = atoi(strsep(&argv[++i], ","));
 			y = atoi(argv[i]);
 		} else if (strcmp(argv[i], "--abs") == 0) {
@@ -626,6 +604,7 @@ int main(int argc, char *argv[]) {
 			default:
 				fprintf(stderr, "Unknown option: %s\n",
 					argv[i]);
+				usage();
 				exit(EXIT_FAILURE);
 			}
 		} else {
@@ -637,19 +616,25 @@ int main(int argc, char *argv[]) {
 
 	if (read_options) read_input();
 
-	update_position();
 	XMapWindow(display, win);
+	update_position();
 	grab_keyboard_pointer();
-	render();
 
-	while (!XNextEvent(display, &ev)) {
-		if (ev.type == KeyPress)
+	for(;;) {
+		XNextEvent(display, &ev);
+		switch (ev.type) {
+		case KeyPress:
 			handle_key(ev.xkey);
-		else if (ev.type == ButtonRelease)
+			render();
+			break;
+		case ButtonRelease:
 			handle_button(ev.xbutton);
-		else if  (ev.type == Expose) {
+			render();
+			break;
+		case Expose:
 			XRaiseWindow(display, win);
 			render();
+			break;
 		}
 	}
 

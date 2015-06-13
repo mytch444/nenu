@@ -1,2 +1,2 @@
 #!/bin/sh
-lsx `echo $PATH | sed "s/:/\n/g"` | sort | nenu -f "exec> " | ${SHELL:-"/bin/sh"}
+lsx `echo $PATH | sed "s/:/\n/g"` | sort | uniq | nenu -f "exec> " | ${SHELL:-"/bin/sh"}
