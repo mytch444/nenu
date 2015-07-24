@@ -1,5 +1,6 @@
 DESTDIR?=
 PREFIX?=/usr
+MANDIR?=${PREFIX}/share/man
 
 all: nenu
 
@@ -24,7 +25,7 @@ nenu.1.gz: nenu.1
 
 .PHONY:
 install-man: nenu.1.gz
-	install -D nenu.1.gz ${DESTDIR}${PREFIX}/man/man1/nenu.1.gz
+	install -D nenu.1.gz ${DESTDIR}${MANDIR}/man1/nenu.1.gz
 
 .PHONY:
 install-nenu: nenu

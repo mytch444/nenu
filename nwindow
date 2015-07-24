@@ -4,4 +4,5 @@
 # shows list of mapped windows, raises selected one.
 
 N=`lsw | nenu -t -f | cut -d' ' -f1`
+[ -z $N ] && exit 1
 chwso -r $N

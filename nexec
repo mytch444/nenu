@@ -1,2 +1,4 @@
 #!/bin/sh
-lsx `echo $PATH | sed "s/:/\n/g"` | sort | uniq | nenu -f "exec> " | ${SHELL:-"/bin/sh"}
+cmd=$(lsx `echo $PATH | sed "s/:/\n/g"` | sort | uniq | nenu -f "exec> ")
+[ -z "$cmd" ] && exit 1
+echo "$cmd" | ${SHELL:-"/bin/sh"}
