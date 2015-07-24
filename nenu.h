@@ -33,7 +33,7 @@ static void load_font(FcChar8 *fontstr);
 static void grab_keyboard_pointer();
 
 static void update_size();
-static void update_position();
+static void set_position();
 static void keep_in_screen();
 
 static void read_input();

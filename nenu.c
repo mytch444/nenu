@@ -127,7 +127,6 @@ void render() {
 	FcChar8 t;
 	
 	update_size();
-	update_position();
 	
 	XftDrawRect(draw, &bg, 0, 0, w, h);
 
@@ -467,7 +466,7 @@ void update_size() {
 	XftDrawChange(draw, buf);
 }
 
-void update_position() {
+void set_position() {
 	Window ww;
 	int c, v;
 
@@ -623,7 +622,7 @@ int main(int argc, char *argv[]) {
 	if (read_options) read_input();
 
 	XMapWindow(display, win);
-	update_position();
+	set_position();
 	grab_keyboard_pointer();
 
 	for(;;) {

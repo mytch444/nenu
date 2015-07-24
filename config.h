@@ -7,5 +7,4 @@
 char bg_name[] = "#ffffff";
 char fg_name[] = "#000000";
 
-char font_str[] = "Liberation Mon:pixelsize=11:antialias=false:autohint=false";
-//char font_str[] = "DejaVuSansMono:pixelsize=13:antialias=true:autohint=false";
+char font_str[] = "DejaVuSansMono:pixelsize=11:antialias=true:autohint=false";
